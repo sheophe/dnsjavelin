@@ -8,21 +8,23 @@ import (
 )
 
 type Launcher struct {
-	nRoutines  int
-	nQuestions int
-	hostPort   string
-	sleepTime  *time.Duration
-	stop       chan struct{}
-	wg         sync.WaitGroup
+	nRoutines    int
+	nQuestions   int
+	hostPort     string
+	victimDomain string
+	sleepTime    *time.Duration
+	stop         chan struct{}
+	wg           sync.WaitGroup
 }
 
-func NewLauncher(nRoutines, nQuestions int, hostPort string, sleep *time.Duration) Launcher {
+func NewLauncher(nRoutines, nQuestions int, hostPort, victimDomain string, sleep *time.Duration) Launcher {
 	return Launcher{
-		nRoutines:  nRoutines,
-		nQuestions: nQuestions,
-		hostPort:   hostPort,
-		sleepTime:  sleep,
-		stop:       make(chan struct{}),
+		nRoutines:    nRoutines,
+		nQuestions:   nQuestions,
+		hostPort:     hostPort,
+		victimDomain: victimDomain,
+		sleepTime:    sleep,
+		stop:         make(chan struct{}),
 	}
 }
 
@@ -37,9 +39,8 @@ func (l *Launcher) Start() {
 }
 
 func (l *Launcher) runner() {
-	client := NewDNSClient(l.hostPort)
 	for {
-		rtt, dnsErr, err := client.SendJunkDomainsRequest(l.nQuestions)
+		rtt, dnsErr, err := NewDNSClient(l.hostPort).SendJunkDomainsRequest(l.nQuestions, l.victimDomain)
 		errorMessage := "none"
 		if err != nil {
 			errorMessage = err.Error()
