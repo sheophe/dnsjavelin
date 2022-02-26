@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/sheophe/dnsjavelin/internal"
 )
@@ -16,7 +17,8 @@ func main() {
 	nQuestions := flag.Int("n", 20, "number of DNS qeustion in one request")
 	victimDomain := flag.String("d", "", "victim domain name")
 
-	sleep := flag.Duration("s", 0, "sleep between requests")
+	// to avoid CPU overload
+	sleep := flag.Duration("s", time.Duration(20)*time.Millisecond, "sleep between requests")
 	flag.Parse()
 
 	if *hostPort == "" {
