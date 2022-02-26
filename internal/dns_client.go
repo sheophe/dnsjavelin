@@ -40,20 +40,21 @@ func (c DNSClient) SendJunkDomainsRequest(nQuestions int, victimDomain string) (
 func (c *DNSClient) randomDomain(victimDomain string) string {
 	if len(victimDomain) == 0 {
 		return fmt.Sprintf(
-			"%s.%s.",
+			"%s.%s",
 			c.randomString(64),
 			c.randomString(3),
 		)
 	}
 	return fmt.Sprintf(
-		"%s.%s.",
+		"%s.%s",
 		c.randomString(32),
 		victimDomain,
 	)
 }
 
 func (c *DNSClient) randomString(length int) string {
-	b := make([]rune, length)
+	actualLen := rand.Intn(length-1) + 1
+	b := make([]rune, actualLen)
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
