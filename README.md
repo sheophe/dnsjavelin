@@ -1,12 +1,13 @@
-## dnsjavelin: DNS stress tester using NXDOMAIN attack
+# dnsjavelin
+## DNS stress tester using NXDOMAIN attack
 
-# Build
+### Build
 
 ```
 go build
 ```
 
-# Run
+### Run
 
 ```
 dnsjavelin -d <domain_name> -n <n_of_threads> -c <n_of_questions>
