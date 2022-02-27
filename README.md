@@ -1,5 +1,4 @@
-# dnsjavelin
-## DNS stress tester using NXDOMAIN attack
+# dnsjavelin — stress tester for DNS servers using NXDOMAIN attack
 
 ### Build
 
