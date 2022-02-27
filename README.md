@@ -1,9 +1,17 @@
-## DSNJAVELIN — DNS stress tester using NXDOMAIN attack
+## dnsjavelin: DNS stress tester using NXDOMAIN attack
 
 # Build
 
-> go build
+```
+go build
+```
 
 # Run
 
-> dnsjavelin -a <host:port> -c <number_of_connections> -n <number_of_domains_in_request>
+```
+dnsjavelin -d <domain_name> -n <n_of_threads> -c <n_of_questions>
+```
+
+By default the only mandatory parameter is `-d` — domain name. The program will
+automatically resolve the domain, obtain all avaliable DNS servers for it, and then
+run the attack on each server.
