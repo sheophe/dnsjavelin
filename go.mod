@@ -2,7 +2,10 @@ module github.com/sheophe/dnsjavelin
 
 go 1.17
 
-require github.com/miekg/dns v1.1.46
+require (
+	github.com/google/gopacket v1.1.19
+	github.com/miekg/dns v1.1.46
+)
 
 require (
 	golang.org/x/mod v0.4.2 // indirect
