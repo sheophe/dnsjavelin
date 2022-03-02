@@ -20,6 +20,8 @@ type DNSClient struct {
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
+const DNSPort = 53
+
 const (
 	// Message Response Codes, see https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml
 	RcodeSuccess        = 0  // NoError   - No Error                          [DNS]
@@ -114,8 +116,8 @@ func (c DNSClient) createPacket(victim, resolver net.IP) (packet []byte, err err
 		Protocol: layers.IPProtocolUDP,
 	}
 	udpLayer := &layers.UDP{
-		SrcPort: layers.UDPPort(53),
-		DstPort: layers.UDPPort(53),
+		SrcPort: layers.UDPPort(c.settings.Port),
+		DstPort: layers.UDPPort(c.settings.Port),
 	}
 	dnsLayer := &layers.DNS{
 		ID:        uint16(rand.Uint32()),

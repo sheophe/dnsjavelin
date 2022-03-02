@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -20,6 +21,7 @@ type Settings struct {
 	// Calculated variables
 	IPAddresses []net.IP // all known IP adresses of victim
 	NameServers []net.IP // all known name servers that resolve victim. only for deep mode
+	Port        uint16
 }
 
 type Launcher struct {
@@ -36,17 +38,43 @@ func NewLauncher(settings *Settings) Launcher {
 }
 
 func (l *Launcher) Initialize() {
-	l.initializeIPAddresses()
-	l.initializeNameServers()
+	var err error
+	// Split host and port
+	host, port, err := net.SplitHostPort(*l.settings.VictimDomain)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not parse host: %v\n", err)
+		os.Exit(1)
+	}
+	l.parseHost(host)
+	l.parsePort(port)
 }
 
-func (l *Launcher) initializeIPAddresses() {
+func (l *Launcher) parseHost(host string) {
 	var err error
-	l.settings.IPAddresses, err = net.LookupIP(*l.settings.VictimDomain)
+	ipAddress := net.ParseIP(host)
+	if ipAddress != nil {
+		l.settings.IPAddresses = append(l.settings.IPAddresses, ipAddress)
+		return
+	}
+	l.settings.IPAddresses, err = net.LookupIP(host)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not get IPs: %v\n", err)
 		os.Exit(1)
 	}
+	l.initializeNameServers()
+}
+
+func (l *Launcher) parsePort(port string) {
+	if len(port) == 0 {
+		l.settings.Port = DNSPort
+		return
+	}
+	parsedPort, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not parse port: %v\n", err)
+		os.Exit(1)
+	}
+	l.settings.Port = uint16(parsedPort)
 }
 
 func (l *Launcher) initializeNameServers() {
@@ -82,7 +110,7 @@ func (l *Launcher) Start() {
 }
 
 func (l *Launcher) runner(addr net.IP) {
-	client := NewDNSClient(net.JoinHostPort(addr.String(), "53"), l.settings)
+	client := NewDNSClient(net.JoinHostPort(addr.String(), strconv.Itoa(int(l.settings.Port))), l.settings)
 	senderFunc := client.GetSenderFunc()
 	for {
 		senderFunc()
