@@ -59,7 +59,6 @@ func (l *Launcher) initializeNameServers() {
 		ip, err := net.LookupIP(ns.Host)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not get IP of name server: %v\n", err)
-			os.Exit(1)
 		}
 		l.settings.NameServers = append(l.settings.NameServers, ip...)
 	}
