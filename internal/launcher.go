@@ -70,20 +70,20 @@ func (l *Launcher) Start() {
 	for _, ipAddress := range l.settings.IPAddresses {
 		for i := 0; i < *l.settings.NRoutines; i++ {
 			l.wg.Add(1)
-			go l.runner(ipAddress.String())
+			go l.runner(ipAddress)
 		}
 	}
 	// Also attack resolvers
 	for _, nsAddress := range l.settings.NameServers {
 		for i := 0; i < *l.settings.NRoutines; i++ {
 			l.wg.Add(1)
-			go l.runner(nsAddress.String())
+			go l.runner(nsAddress)
 		}
 	}
 }
 
-func (l *Launcher) runner(ipString string) {
-	client := NewDNSClient(fmt.Sprintf("%s:53", ipString), l.settings)
+func (l *Launcher) runner(addr net.IP) {
+	client := NewDNSClient(net.JoinHostPort(addr.String(), "53"), l.settings)
 	senderFunc := client.GetSenderFunc()
 	for {
 		senderFunc()
