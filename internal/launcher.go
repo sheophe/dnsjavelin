@@ -66,10 +66,18 @@ func (l *Launcher) initializeNameServers() {
 }
 
 func (l *Launcher) Start() {
+	// Attack server IPs
 	for _, ipAddress := range l.settings.IPAddresses {
 		for i := 0; i < *l.settings.NRoutines; i++ {
 			l.wg.Add(1)
 			go l.runner(ipAddress.String())
+		}
+	}
+	// Also attack resolvers
+	for _, nsAddress := range l.settings.NameServers {
+		for i := 0; i < *l.settings.NRoutines; i++ {
+			l.wg.Add(1)
+			go l.runner(nsAddress.String())
 		}
 	}
 }
