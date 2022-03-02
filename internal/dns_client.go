@@ -85,7 +85,11 @@ func (c DNSClient) SendRegularJunkDomainsRequest() {
 		m.SetQuestion(dns.CanonicalName(c.randomSubDomain()), dns.TypeAAAA)
 	}
 	r, rtt, err := c.client.Exchange(m, c.hostPort)
-	c.printRegularLog(rtt, r.Rcode, err)
+	var rcode *int
+	if r != nil {
+		rcode = &r.Rcode
+	}
+	c.printRegularLog(rtt, rcode, err)
 }
 
 func (c DNSClient) GetSenderFunc() func() {
@@ -140,14 +144,14 @@ func (c DNSClient) createPacket(victim, resolver net.IP) (packet []byte, err err
 	return buf.Bytes(), nil
 }
 
-func (c DNSClient) printRegularLog(rtt time.Duration, rcode int, netErr error) {
+func (c DNSClient) printRegularLog(rtt time.Duration, rcode *int, netErr error) {
 	errorMessage := "none"
 	if netErr != nil {
 		errorMessage = netErr.Error()
 	}
-	dnsErr, ok := rcodeToString[rcode]
-	if !ok {
-		dnsErr = "none"
+	dnsErr := "none"
+	if rcode != nil {
+		dnsErr = rcodeToString[*rcode]
 	}
 	log.Printf("RTT: %-12s  DNS_ERR: %-8s  NET_ERR: %s", rtt.String(), dnsErr, errorMessage)
 }
@@ -156,7 +160,7 @@ func (c *DNSClient) randomSubDomain() string {
 	return fmt.Sprintf(
 		"%s.%s.",
 		c.randomString(32),
-		c.settings.VictimDomain,
+		*c.settings.VictimDomain,
 	)
 }
 
