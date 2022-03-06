@@ -95,24 +95,24 @@ func (l *Launcher) initializeNameServers() {
 }
 
 func (l *Launcher) Start() {
-	// Attack server IPs
-	for _, ipAddress := range l.settings.IPAddresses {
+	l.startRunners(l.settings.IPAddresses)
+	l.startRunners(l.settings.NameServers)
+}
+
+func (l *Launcher) startRunners(addrs []net.IP) {
+	for _, addr := range addrs {
 		for i := 0; i < *l.settings.NRoutines; i++ {
+			client, err := NewDNSClient(net.JoinHostPort(addr.String(), strconv.Itoa(int(l.settings.Port))), l.settings)
+			if err != nil {
+				continue
+			}
 			l.wg.Add(1)
-			go l.runner(ipAddress)
-		}
-	}
-	// Also attack resolvers
-	for _, nsAddress := range l.settings.NameServers {
-		for i := 0; i < *l.settings.NRoutines; i++ {
-			l.wg.Add(1)
-			go l.runner(nsAddress)
+			go l.runner(client)
 		}
 	}
 }
 
-func (l *Launcher) runner(addr net.IP) {
-	client := NewDNSClient(net.JoinHostPort(addr.String(), strconv.Itoa(int(l.settings.Port))), l.settings)
+func (l *Launcher) runner(client *DNSClient) {
 	senderFunc := client.GetSenderFunc()
 	for {
 		senderFunc()

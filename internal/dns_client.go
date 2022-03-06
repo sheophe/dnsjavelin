@@ -16,6 +16,7 @@ type DNSClient struct {
 	hostPort string
 	settings *Settings
 	client   *dns.Client
+	conn     *dns.Conn
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
@@ -69,12 +70,31 @@ var rcodeToString = map[int]string{
 	RcodeBadCookie:      "BADCOOKIE",
 }
 
-func NewDNSClient(hostPort string, settings *Settings) (c DNSClient) {
-	return DNSClient{
+func PrintRegularLog(rtt time.Duration, rcode *int, netErr error) {
+	errorMessage := "none"
+	if netErr != nil {
+		errorMessage = netErr.Error()
+	}
+	dnsErr := "none"
+	if rcode != nil {
+		dnsErr = rcodeToString[*rcode]
+	}
+	log.Printf("RTT: %-12s  DNS_ERR: %-8s  NET_ERR: %s", rtt.String(), dnsErr, errorMessage)
+}
+
+func NewDNSClient(hostPort string, settings *Settings) (c *DNSClient, err error) {
+	client := new(dns.Client)
+	conn, err := client.Dial(hostPort)
+	if err != nil {
+		return
+	}
+	c = &DNSClient{
 		hostPort: hostPort,
 		settings: settings,
-		client:   new(dns.Client),
+		client:   client,
+		conn:     conn,
 	}
+	return
 }
 
 func (c DNSClient) SendDeepJunkDomainsRequest() {
@@ -86,12 +106,12 @@ func (c DNSClient) SendRegularJunkDomainsRequest() {
 	for i := 0; i < *c.settings.NQuestions; i++ {
 		m.SetQuestion(dns.CanonicalName(c.randomSubDomain()), dns.TypeAAAA)
 	}
-	r, rtt, err := c.client.Exchange(m, c.hostPort)
+	r, rtt, err := c.client.ExchangeWithConn(m, c.conn)
 	var rcode *int
 	if r != nil {
 		rcode = &r.Rcode
 	}
-	c.printRegularLog(rtt, rcode, err)
+	PrintRegularLog(rtt, rcode, err)
 }
 
 func (c DNSClient) GetSenderFunc() func() {
@@ -157,18 +177,6 @@ func (c DNSClient) createPacket(victim, resolver net.IP) (packet []byte, err err
 		return
 	}
 	return buf.Bytes(), nil
-}
-
-func (c DNSClient) printRegularLog(rtt time.Duration, rcode *int, netErr error) {
-	errorMessage := "none"
-	if netErr != nil {
-		errorMessage = netErr.Error()
-	}
-	dnsErr := "none"
-	if rcode != nil {
-		dnsErr = rcodeToString[*rcode]
-	}
-	log.Printf("RTT: %-12s  DNS_ERR: %-8s  NET_ERR: %s", rtt.String(), dnsErr, errorMessage)
 }
 
 func (c *DNSClient) randomSubDomain() string {
