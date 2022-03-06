@@ -38,12 +38,10 @@ func NewLauncher(settings *Settings) Launcher {
 }
 
 func (l *Launcher) Initialize() {
-	var err error
 	// Split host and port
 	host, port, err := net.SplitHostPort(*l.settings.VictimDomain)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "could not parse host: %v\n", err)
-		os.Exit(1)
+		host = *l.settings.VictimDomain
 	}
 	l.parseHost(host)
 	l.parsePort(port)
@@ -51,6 +49,10 @@ func (l *Launcher) Initialize() {
 
 func (l *Launcher) parseHost(host string) {
 	var err error
+	if len(host) == 0 {
+		fmt.Fprintf(os.Stderr, "host is not specified\n")
+		os.Exit(1)
+	}
 	ipAddress := net.ParseIP(host)
 	if ipAddress != nil {
 		l.settings.IPAddresses = append(l.settings.IPAddresses, ipAddress)

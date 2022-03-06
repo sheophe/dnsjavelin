@@ -101,6 +101,19 @@ func (c DNSClient) GetSenderFunc() func() {
 	return c.SendRegularJunkDomainsRequest
 }
 
+func (c DNSClient) localMacAddres() net.HardwareAddr {
+	ifas, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+	for _, ifa := range ifas {
+		if a := ifa.HardwareAddr; a != nil {
+			return a
+		}
+	}
+	return nil
+}
+
 // createPacket is unused
 func (c DNSClient) createPacket(victim, resolver net.IP) (packet []byte, err error) {
 	buf := gopacket.NewSerializeBuffer()
